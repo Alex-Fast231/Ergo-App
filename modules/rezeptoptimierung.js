@@ -32,7 +32,7 @@ export const HEILMITTEL_KATALOG = {
   },
   EN1: {
     label: "ZNS-Erkrankungen (Gehirn) / Entwicklungsstörungen",
-    vorrangig: ["SP", "MF", "HLT", "PF"],
+    vorrangig: ["SP", "MF", "HL", "PF"],
     maxProVO: 10,
     orientierendeMenge: 60,
     hinweis: "Orientierende Menge längstens bis zur Vollendung des 18. Lebensjahres."
@@ -51,7 +51,7 @@ export const HEILMITTEL_KATALOG = {
   },
   PS1: {
     label: "Entwicklungs-, Verhaltens- und emotionale Störungen (Beginn in Kindheit/Jugend)",
-    vorrangig: ["PF", "HLT"],
+    vorrangig: ["PF", "HL"],
     maxProVO: 10,
     orientierendeMenge: 40,
     hinweis: "Verordnung nur aufgrund einer kinder- und jugendpsychiatrischen, neuropädiatrischen oder jugendlichen psychotherapeutischen Eingangsdiagnostik."
@@ -65,14 +65,14 @@ export const HEILMITTEL_KATALOG = {
   },
   PS3: {
     label: "Wahnhafte und affektive Störungen / Abhängigkeitserkrankungen",
-    vorrangig: ["PF", "HLT"],
+    vorrangig: ["PF", "HL"],
     maxProVO: 20,
     orientierendeMenge: 40,
     hinweis: "Verordnung nur aufgrund einer psychiatrischen, neurologischen oder psychotherapeutischen Eingangsdiagnostik."
   },
   PS4: {
     label: "Dementielle Syndrome",
-    vorrangig: ["HLT", "PF"],
+    vorrangig: ["HL", "PF"],
     maxProVO: 10,
     orientierendeMenge: 40,
     hinweis: "Verordnung nur aufgrund einer psychiatrischen, neurologischen oder neuropsychologischen Eingangsdiagnostik."
@@ -82,7 +82,7 @@ export const HEILMITTEL_KATALOG = {
 export const VERGUETUNG = {
   MF: { label: "Motorisch-funktionelle Behandlung" },
   SP: { label: "Sensomotorisch-perzeptive Behandlung" },
-  HLT: { label: "Hirnleistungstraining / neuropsychologisch orientierte Behandlung" },
+  HL: { label: "Hirnleistungstraining / neuropsychologisch orientierte Behandlung" },
   PF: { label: "Psychisch-funktionelle Behandlung" }
 };
 
@@ -91,7 +91,7 @@ export const VERGUETUNG = {
 // ui/views.js) - eine Umbenennungstabelle ist nicht nötig, die Identitäts-
 // abbildung bleibt aber bestehen, damit bestehende Aufrufstellen (die einen
 // EMPFEHLUNG_ZU_ITEM_TYPE-Lookup erwarten) unverändert funktionieren.
-export const EMPFEHLUNG_ZU_ITEM_TYPE = { MF: "MF", SP: "SP", HLT: "HLT", PF: "PF" };
+export const EMPFEHLUNG_ZU_ITEM_TYPE = { MF: "MF", SP: "SP", HL: "HL", PF: "PF" };
 
 const PRAEFIX_REGELN = [
   // SB1 - Wirbelsäule/Gelenke, motorisch-funktionell

@@ -18,18 +18,14 @@ function normalizeLeistungName(value) {
     .replace(/—/g, "-");
 }
 
-// Zeitrichtwerte je ergotherapeutischer Leistung (recherchiert anhand
-// öffentlich zugänglicher Angaben zu Regelbehandlungszeiten, siehe
-// Übergabe-Notiz - KEIN Zitat aus der amtlichen Vergütungsvereinbarung, da
-// deren PDF aus dieser Umgebung heraus nicht abrufbar war. Einfache
-// Konstanten, bei Bedarf ohne Weiteres anpassbar, sobald die exakten
-// Werte aus der aktuellen Anlage 2 vorliegen).
+// Zeitrichtwerte je ergotherapeutischer Leistung (vom Nutzer vorgegeben:
+// MF 30, SP 45, HL 30, PF 60 Minuten).
 function getSingleLeistungMinutes(type) {
   const key = normalizeLeistungName(type);
 
   if (key === "MF") return 30;
   if (key === "SP") return 45;
-  if (key === "HLT") return 30;
+  if (key === "HL") return 30;
   if (key === "PF") return 60;
   if (key === "BLANKO") return 30;
 

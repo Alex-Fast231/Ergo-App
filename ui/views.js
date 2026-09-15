@@ -950,7 +950,7 @@ function formatCurrentDateShort(date = new Date()) {
   });
 }
 
-const REZEPT_ITEM_OPTIONS = ["MF", "SP", "HLT", "PF", "Blanko"];
+const REZEPT_ITEM_OPTIONS = ["MF", "SP", "HL", "PF", "Blanko"];
 
 function getKnownDoctorNames(data) {
   return getDoctorList(data).filter(Boolean);
@@ -8751,10 +8751,10 @@ export function showZeiterfassungView({ onLock, selectedHomeId = null, selectedP
 
       <label>Dauer</label>
       ${renderRadioGroup("zeitDauer", [
-        { val: "20", label: "20 Min" },
-        { val: "40", label: "40 Min" },
+        { val: "30", label: "30 Min" },
+        { val: "45", label: "45 Min" },
         { val: "60", label: "60 Min" }
-      ], String([20, 40, 60].includes(autoMin) ? autoMin : 20))}
+      ], String([30, 45, 60].includes(autoMin) ? autoMin : 30))}
       ${rezept.dt ? `<div class="compact-meta" style="margin-top:-6px; margin-bottom:12px;">Doppelbehandlung berücksichtigt</div>` : ''}
 
       <input id="zeitNotizInput" type="text" placeholder="Notiz optional: z. B. Hausbesuch ...">
@@ -8779,7 +8779,7 @@ export function showZeiterfassungView({ onLock, selectedHomeId = null, selectedP
     const notiz = document.getElementById("zeitNotizInput").value.trim();
     const datumInput = document.getElementById("zeitDatumInput").value.trim();
     const msg = document.getElementById("zeitBuchenMsg");
-    const minutes = Number(getRadioValue("zeitDauer")) || 20;
+    const minutes = Number(getRadioValue("zeitDauer")) || 30;
 
     const normalizedDatum = normalizeDeDateInput(datumInput) || datumInput;
     if (!normalizedDatum || !parseDeDate(normalizedDatum)) {
@@ -8833,7 +8833,7 @@ function getAutomaticTreatmentMinutesForZeit(rezept) {
     const k = norm(type);
     if (k === "MF") return 30;
     if (k === "SP") return 45;
-    if (k === "HLT") return 30;
+    if (k === "HL") return 30;
     if (k === "PF") return 60;
     if (k === "BLANKO") return 30;
     return 0;
