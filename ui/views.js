@@ -1503,11 +1503,11 @@ function renderLineChartSvg(series, { width = 280, height = 70 } = {}) {
 
   return `
     <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="display:block;">
-      <polyline points="${points}" fill="none" stroke="#2563eb" stroke-width="2"></polyline>
+      <polyline points="${points}" fill="none" stroke="#15803d" stroke-width="2"></polyline>
       ${series.map((p, idx) => {
         const x = idx * stepX;
         const y = height - ((p.value - min) / (max - min)) * (height - 10) - 5;
-        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="#2563eb"></circle>`;
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="#15803d"></circle>`;
       }).join("")}
     </svg>
   `;
@@ -1797,7 +1797,7 @@ function openHtmlDocument(title, bodyHtml, { autoPrint = false } = {}) {
           border-radius:8px;
           padding:10px 14px;
           cursor:pointer;
-          background:#2563eb;
+          background:#15803d;
           color:white;
           font-weight:600;
         }
@@ -2644,6 +2644,12 @@ export function showSettingsView({ onLock }) {
       <label for="settingsBueroEmail">Büro-E-Mail-Adresse</label>
       <input id="settingsBueroEmail" type="email" autocomplete="off" value="${escapeHtml(settings.buero?.email || "")}" placeholder="buero@praxis.de">
 
+      <label for="settingsAssessmentInterval">Assessment-Intervall (Folge-Assessments)</label>
+      <select id="settingsAssessmentInterval">
+        <option value="3" ${Number(settings.assessmentIntervalMonths) === 3 ? "selected" : ""}>Alle 3 Monate</option>
+        <option value="6" ${Number(settings.assessmentIntervalMonths) === 6 ? "selected" : ""}>Alle 6 Monate</option>
+      </select>
+
       <button id="saveSettingsBtn">Änderungen speichern</button>
       <div id="settingsMessage"></div>
     </div>
@@ -2674,6 +2680,7 @@ export function showSettingsView({ onLock }) {
     const fastStartDatum = fastStartDatumInput ? parseDeDate(fastStartDatumInput) : "";
     const stundenStartsaldoMinuten = parseStundenStartsaldoInput(document.getElementById("settingsStundenStartsaldo").value);
     const bueroEmail = document.getElementById("settingsBueroEmail").value.trim();
+    const assessmentIntervalMonths = Number(document.getElementById("settingsAssessmentInterval").value);
     const msg = document.getElementById("settingsMessage");
 
     msg.className = "error";
@@ -2705,6 +2712,7 @@ export function showSettingsView({ onLock }) {
         data.settings.fastStartDatum = fastStartDatum;
         data.settings.stundenStartsaldoMinuten = stundenStartsaldoMinuten;
         data.settings.buero = { email: bueroEmail };
+        data.settings.assessmentIntervalMonths = assessmentIntervalMonths;
         data.settings.updatedAt = new Date().toISOString();
       });
 
@@ -2809,7 +2817,7 @@ export function showDashboardView({ onLock, keepOverviewOpen = false } = {}) {
     ` : ""}
 
     ${assessmentErinnerungen.length > 0 ? `
-      <div class="card" style="background:#eff6ff; border-color:#2563eb;">
+      <div class="card" style="background:#f0fdf4; border-color:#15803d;">
         <h3>Assessment fällig</h3>
         <div class="list-stack">
           ${assessmentErinnerungen.map((item) => `
@@ -2902,7 +2910,7 @@ export function showDashboardView({ onLock, keepOverviewOpen = false } = {}) {
         <button id="openFreikuvertBtn" class="secondary" style="margin-top:0;">✉️ Freikuvert</button>
       </div>
       <div class="row" style="margin-top:12px;">
-        <button id="openAssessmentEinstiegBtn" class="secondary" style="margin-top:0; opacity:0.5; cursor:not-allowed;" disabled title="Eigenes Ergotherapie-Assessment folgt in einem späteren Update">📋 Assessment (bald)</button>
+        <button id="openAssessmentEinstiegBtn" class="secondary" style="margin-top:0;">📋 Assessment</button>
         <button id="openFaqBtn" class="secondary" style="margin-top:0;">❓ FAQ</button>
       </div>
       <div class="row" style="margin-top:12px;">
@@ -2956,6 +2964,7 @@ export function showDashboardView({ onLock, keepOverviewOpen = false } = {}) {
   };
   document.getElementById("openAbwesenheitBtn").onclick = () => showAbwesenheitView({ onLock });
   document.getElementById("openFreikuvertBtn").onclick = () => showFreikuvertView({ onLock });
+  document.getElementById("openAssessmentEinstiegBtn").onclick = () => showAssessmentEinrichtungAuswahlView({ onLock });
   document.getElementById("openFaqBtn").onclick = () => showFaqView({ onLock });
 
   document.getElementById("openStundenkontoFromOverviewBtn").onclick = () => showStundenkontoView({ onLock });
