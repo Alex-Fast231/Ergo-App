@@ -4,6 +4,7 @@ import { getRezeptFristInfo } from "./fristen.js";
 const JA_NEIN_LABELS = {
   icd10: "ICD-10 Code",
   leitsymptomatik: "Leitsymptomatik",
+  arzt: "Arzt",
   items: "Heilmittel",
   hausbesuch: "Hausbesuch",
   arztStempel: "Arzt-Stempel",
@@ -29,6 +30,10 @@ export function validateRezeptPflichtfelder(rezept) {
 
   if (!String(r.leitsymptomatik || "").trim()) {
     errors.push({ field: "leitsymptomatik", message: `${JA_NEIN_LABELS.leitsymptomatik} fehlt.` });
+  }
+
+  if (!String(r.arzt || "").trim()) {
+    errors.push({ field: "arzt", message: `${JA_NEIN_LABELS.arzt} fehlt.` });
   }
 
   const items = Array.isArray(r.items) ? r.items : [];

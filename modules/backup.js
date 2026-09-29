@@ -2,6 +2,7 @@ import { APP_MODULE, APP_SCHEMA_VERSION, APP_VERSION } from "../data/schema.js";
 import { finalizeAppStructure } from "../data/normalization.js";
 import { fromBase64 } from "../crypto/crypto-engine.js";
 import { getPracticePasswordFromRuntime, verifyPracticePassword } from "../security/auth.js";
+import { addViewerAppDataEntry } from "./backupReminder.js";
 import {
   loadEncryptedAppData,
   loadCryptoMeta,
@@ -173,6 +174,12 @@ export async function exportBackup(runtimeData, { overridePassword = null } = {}
   await writer.add("cryptoMeta.json", new zipLib.TextReader(JSON.stringify(cryptoMeta, null, 2)), zipOptions);
   await writer.add("meta.json", new zipLib.TextReader(JSON.stringify(meta, null, 2)), zipOptions);
   await writer.add("securityState.json", new zipLib.TextReader(JSON.stringify(securityState, null, 2)), zipOptions);
+  // Zusätzlich eine appData.json (siehe addViewerAppDataEntry) beilegen, damit
+  // dieselbe ZIP auch direkt im FaSt-Doku Viewer geöffnet werden kann - ohne
+  // diese Datei erkennt der Viewer das manuelle Backup nicht (er sucht gezielt
+  // nach appData.json, siehe viewer/index.html), obwohl meta.json bereits
+  // "viewerCompatible: true" versprach.
+  await addViewerAppDataEntry(writer, finalizeAppStructure(runtimeData));
 
   const blob = await writer.close();
   const stamp = meta.exportTimestamp.replace(/[:T]/g, "-").slice(0, 16);

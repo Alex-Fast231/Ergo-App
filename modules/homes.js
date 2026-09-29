@@ -69,25 +69,6 @@ function getEffectiveRezeptTimeEntryMinutes(rezept, entry) {
   return currentRecipeMinutes > 0 ? currentRecipeMinutes : fallbackMinutes;
 }
 
-export function getRezeptEntryAutoMinutes(rezept, entry) {
-  const linkedTimeEntryId = String(entry?.linkedTimeEntryId || "").trim();
-  const timeEntry = (rezept?.timeEntries || []).find((item) => String(item?.timeEntryId || "") === linkedTimeEntryId);
-
-  if (timeEntry) {
-    return getEffectiveRezeptTimeEntryMinutes(rezept, timeEntry);
-  }
-
-  const storedMinutes = Number(entry?.autoTimeMinutes || 0);
-  const fallbackMinutes = Number.isFinite(storedMinutes) && storedMinutes > 0 ? storedMinutes : 0;
-
-  if (String(entry?.entryId || "").trim()) {
-    const currentRecipeMinutes = getAutomaticTreatmentMinutes(rezept);
-    return currentRecipeMinutes > 0 ? currentRecipeMinutes : fallbackMinutes;
-  }
-
-  return fallbackMinutes;
-}
-
 function createTimeEntryObject(payload = {}) {
   const now = new Date().toISOString();
   const minutes = Number(payload.minutes);
@@ -130,6 +111,17 @@ function getTodayDateString() {
 function normalizeDateString(value) {
   const s = String(value || "").trim();
   return s || getTodayDateString();
+}
+
+// Hält rezept.entries chronologisch sortiert (frühestes Datum zuerst) -
+// wichtig, weil rückwirkend nachgetragene Einträge (z.B. heute für einen
+// Termin vor Wochen dokumentiert) sonst am Ende der Liste in
+// Eingabe-Reihenfolge statt Behandlungs-Reihenfolge stehen würden. Das würde
+// u.a. die Fristenprüfung ("1. Behandlung", siehe modules/fristen.js) auf
+// das zuletzt eingegebene statt das tatsächlich früheste Datum beziehen.
+function sortRezeptEntriesByDate(rezept) {
+  if (!Array.isArray(rezept?.entries)) return;
+  rezept.entries.sort((a, b) => compareDeDates(a?.date, b?.date));
 }
 
 function ensureKilometerState(data) {
@@ -710,6 +702,7 @@ export function createPatient(homeId, payload) {
       birthDate: (payload.birthDate || "").trim(),
       befreit: !!payload.befreit,
       verstorben: !!payload.verstorben,
+      ausgeschieden: !!payload.ausgeschieden,
       zuzahlungsstatus: "",
       zuzahlungsstatusSetAt: "",
       zuzahlungReminderAt: "",
@@ -739,6 +732,25 @@ export function updatePatient(homeId, patientId, payload) {
       patient.befreit = !!payload.befreit;
     }
     patient.verstorben = !!payload.verstorben;
+    if (payload.ausgeschieden !== undefined) {
+      patient.ausgeschieden = !!payload.ausgeschieden;
+    }
+  });
+}
+
+// Eigener, schlanker Setter für "Ausgeschieden" (statt über updatePatient()) -
+// so kann FaSti diesen Status per Chat setzen, ohne gleichzeitig auch
+// Vorname/Nachname/Geburtsdatum mitschicken zu müssen, die updatePatient()
+// sonst als Pflichtfelder erwartet und sonst überschreiben würde.
+export function setPatientAusgeschieden(homeId, patientId, value) {
+  mutateRuntimeData((data) => {
+    const home = getHomeById(data, homeId);
+    if (!home) throw new Error("Heim nicht gefunden");
+
+    const patient = getPatientById(home, patientId);
+    if (!patient) throw new Error("Patient nicht gefunden");
+
+    patient.ausgeschieden = !!value;
   });
 }
 
@@ -828,7 +840,7 @@ export function getFaelligeAssessmentErinnerungen(data) {
 
   (data?.homes || []).forEach((home) => {
     (home.patients || []).forEach((patient) => {
-      if (patient.verstorben) return;
+      if (patient.verstorben || patient.ausgeschieden) return;
       const dueAt = String(patient.nextAssessmentDueAt || "").trim();
       if (dueAt && dueAt <= today) {
         result.push({
@@ -850,19 +862,24 @@ export function getArztRegistry(data) {
 
   (data?.aerzte || []).forEach((arzt) => {
     const name = String(arzt?.name || "").trim();
-    if (name) registryByName.set(name, arzt.adresse || "");
+    if (name) registryByName.set(name, { adresse: arzt.adresse || "", email: arzt.email || "" });
   });
 
   namesFromRezepte.forEach((name) => {
-    if (!registryByName.has(name)) registryByName.set(name, "");
+    if (!registryByName.has(name)) registryByName.set(name, { adresse: "", email: "" });
   });
 
   return Array.from(registryByName.entries())
-    .map(([name, adresse]) => ({ name, adresse }))
+    .map(([name, { adresse, email }]) => ({ name, adresse, email }))
     .sort((a, b) => a.name.localeCompare(b.name, "de"));
 }
 
-export function upsertArztAdresse(name, adresse) {
+// email ist bewusst optional (dritter Parameter): wird er weggelassen
+// (undefined), bleibt eine bereits hinterlegte E-Mail-Adresse unangetastet -
+// die meisten Aufrufer (Rezept anlegen/bearbeiten) pflegen nur die Adresse,
+// nicht die E-Mail, und sollen eine dort separat gepflegte E-Mail nicht
+// versehentlich leeren.
+export function upsertArztAdresse(name, adresse, email) {
   const normalizedName = String(name || "").trim();
   if (!normalizedName) throw new Error("Arztname fehlt");
 
@@ -872,12 +889,64 @@ export function upsertArztAdresse(name, adresse) {
 
     if (existing) {
       existing.adresse = String(adresse || "").trim();
+      if (email !== undefined) existing.email = String(email || "").trim();
       existing.updatedAt = new Date().toISOString();
     } else {
       data.aerzte.push({
         id: generateId("arzt"),
         name: normalizedName,
         adresse: String(adresse || "").trim(),
+        email: email !== undefined ? String(email || "").trim() : "",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+  });
+}
+
+// Ärzte werden überall nur über den Namensstring referenziert (rezept.arzt),
+// es gibt keine arztId - eine Umbenennung muss deshalb den neuen Namen in
+// JEDES betroffene Rezept zurückschreiben, sonst würde der Arzt beim
+// Speichern nur der Registry-Eintrag umbenannt, während alle Rezepte/
+// Patienten weiterhin auf den alten (jetzt verwaisten) Namen verweisen und
+// aus der Arztübersicht/Nachbestellung verschwinden. Eine Umbenennung auf
+// einen bereits existierenden anderen Arztnamen wird abgelehnt statt
+// stillschweigend zusammenzuführen, um versehentliches Vermischen zweier
+// Ärzte zu vermeiden.
+export function renameArzt(oldName, newName) {
+  const trimmedOld = String(oldName || "").trim();
+  const trimmedNew = String(newName || "").trim();
+  if (!trimmedNew) throw new Error("Arztname darf nicht leer sein.");
+  if (trimmedOld === trimmedNew) return;
+
+  mutateRuntimeData((data) => {
+    const collision = getDoctorList(data).includes(trimmedNew)
+      || (data.aerzte || []).some((arzt) => String(arzt.name || "").trim() === trimmedNew);
+    if (collision) {
+      throw new Error(`Es gibt bereits einen Arzt namens "${trimmedNew}".`);
+    }
+
+    (data.homes || []).forEach((home) => {
+      (home.patients || []).forEach((patient) => {
+        (patient.rezepte || []).forEach((rezept) => {
+          if (String(rezept.arzt || "").trim() === trimmedOld) {
+            rezept.arzt = trimmedNew;
+          }
+        });
+      });
+    });
+
+    if (!Array.isArray(data.aerzte)) data.aerzte = [];
+    const entry = data.aerzte.find((arzt) => String(arzt.name || "").trim() === trimmedOld);
+    if (entry) {
+      entry.name = trimmedNew;
+      entry.updatedAt = new Date().toISOString();
+    } else {
+      data.aerzte.push({
+        id: generateId("arzt"),
+        name: trimmedNew,
+        adresse: "",
+        email: "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
@@ -967,7 +1036,7 @@ export function getFaelligeZuzahlungErinnerungen(data) {
 
   (data?.homes || []).forEach((home) => {
     (home.patients || []).forEach((patient) => {
-      if (patient.verstorben) return;
+      if (patient.verstorben || patient.ausgeschieden) return;
       if (patient.zuzahlungsstatus !== "ungeklaert") return;
 
       const reminderAt = patient.zuzahlungReminderAt ? new Date(patient.zuzahlungReminderAt).getTime() : 0;
@@ -1257,7 +1326,12 @@ export function getRezeptById(patient, rezeptId) {
   return (patient?.rezepte || []).find((rezept) => rezept.rezeptId === rezeptId) || null;
 }
 
+// Gibt die erzeugte entryId zurück (z.B. damit FaSti einen im selben Zug
+// gebuchten Zeiteintrag nachträglich damit verknüpfen kann - siehe
+// createFastiTimeEntry() in modules/fasti.js).
 export function createRezeptEntry(homeId, patientId, rezeptId, payload) {
+  let createdEntryId = "";
+
   mutateRuntimeData((data) => {
     const home = getHomeById(data, homeId);
     if (!home) throw new Error("Heim nicht gefunden");
@@ -1271,8 +1345,8 @@ export function createRezeptEntry(homeId, patientId, rezeptId, payload) {
     ensureRezeptTimeState(rezept);
 
     const entryId = generateId("entry");
-    let linkedTimeEntryId = "";
     const entryDate = normalizeDateString(payload.date);
+    createdEntryId = entryId;
 
     rezept.entries.push({
       entryId,
@@ -1285,8 +1359,17 @@ export function createRezeptEntry(homeId, patientId, rezeptId, payload) {
       autoTimeMinutes: 0
     });
 
+    // Rückwirkend nachgetragene Doku-Einträge (z.B. erst heute für ein Datum
+    // vor Wochen erfasst) sollen nach Datum sortiert erscheinen, nicht in der
+    // Reihenfolge, in der sie eingegeben wurden - sonst würde z.B. die
+    // Fristenprüfung ("1. Behandlung") den zuletzt eingetragenen statt den
+    // tatsächlich frühesten Termin für die Frist heranziehen.
+    sortRezeptEntriesByDate(rezept);
+
     appendTravelLogIfPossible(data, homeId, patientId, payload.date, entryId);
   });
+
+  return createdEntryId;
 }
 
 export function updateRezeptEntry(homeId, patientId, rezeptId, entryId, payload) {
@@ -1306,6 +1389,8 @@ export function updateRezeptEntry(homeId, patientId, rezeptId, entryId, payload)
     entry.date = (payload.date || "").trim();
     entry.text = (payload.text || "").trim();
     entry.updatedAt = new Date().toISOString();
+
+    sortRezeptEntriesByDate(rezept);
   });
 }
 
@@ -1578,6 +1663,10 @@ export function buildNachbestellRows(data) {
 
   (data.homes || []).forEach((home) => {
     (home.patients || []).forEach((patient) => {
+      // Ausgeschiedene Patienten gelten nicht mehr als aktiv - weder FaSti
+      // noch die manuelle Nachbestellungs-Ansicht sollen für sie noch eine
+      // Nachbestellung erwarten oder vorschlagen (siehe patient.ausgeschieden).
+      if (patient.ausgeschieden) return;
       (patient.rezepte || []).forEach((rezept) => {
         rows.push({
           rowId: `${home.homeId}_${patient.patientId}_${rezept.rezeptId}`,

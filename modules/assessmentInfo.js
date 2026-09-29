@@ -83,6 +83,21 @@ export const TEST_INFO = {
     ]
   },
 
+  bbs14: {
+    title: "Berg-Balance-Test (BBS, vollständige 14-Item-Version)",
+    durchfuehrung: [
+      "Vollständige, standardisierte 14-Item-Version der Berg Balance Scale zur Prüfung des funktionellen Gleichgewichts",
+      "Jedes Item wird mit 0-4 Punkten bewertet - die konkrete Bedeutung jeder Punktzahl steht direkt bei jedem Item in der Erfassung",
+      "Items, die aus anderen Gründen nicht durchführbar sind (z.B. Rollstuhlpflichtigkeit), können als „nicht durchführbar“ markiert werden und zählen dann nicht in die erreichbare Höchstpunktzahl"
+    ],
+    interpretation: [
+      "Gesamtscore max. 56 Punkte (bei allen 14 durchführbaren Items)",
+      "41-56 Punkte: geringes Sturzrisiko, weitgehend selbstständig",
+      "21-40 Punkte: mittleres Sturzrisiko, Gehen mit Unterstützung",
+      "0-20 Punkte: hohes Sturzrisiko, meist rollstuhlpflichtig"
+    ]
+  },
+
   rmi: {
     title: "RMI – Rivermead Mobility Index",
     durchfuehrung: [

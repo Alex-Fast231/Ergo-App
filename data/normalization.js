@@ -1,5 +1,5 @@
 import { createEmptyAppData, APP_SCHEMA_VERSION, APP_VERSION, APP_MODULE, PRACTICE_ADDRESS } from "./schema.js";
-import { formatDeDate, parseDeDate } from "../core/date-utils.js";
+import { formatDeDate, parseDeDate, compareDeDates } from "../core/date-utils.js";
 import { generateId, getRezeptAusstellungsdatum } from "../core/utils.js";
 
 function ensureString(value, fallback = "") {
@@ -77,6 +77,14 @@ function normalizeEntry(entry) {
   };
 }
 
+// Defensiv beim Laden: SchnellDoku-Einträge chronologisch sortieren
+// (frühestes Datum zuerst), unabhängig von der ursprünglichen
+// Eingabe-Reihenfolge - z.B. für Backups/Importe, die vor der Sortierung
+// beim Speichern (siehe modules/homes.js: createRezeptEntry) entstanden sind.
+function sortEntriesChronologically(entries) {
+  return [...entries].sort((a, b) => compareDeDates(a?.date, b?.date));
+}
+
 function normalizeItem(item) {
   const source = item && typeof item === "object" ? item : {};
   const type = ensureString(source.type).trim();
@@ -127,7 +135,7 @@ return {
   privat: ensureBoolean(source.privat, false),
   abgegeben: ensureBoolean(source.abgegeben, false),
   items,
-  entries: ensureArray(source.entries).map(normalizeEntry),
+  entries: sortEntriesChronologically(ensureArray(source.entries).map(normalizeEntry)),
   zeitMeta: source.zeitMeta && typeof source.zeitMeta === "object"
     ? source.zeitMeta
     : {
@@ -237,6 +245,25 @@ function normalizeBbs7Items(items) {
   return result;
 }
 
+const BBS_ITEM_KEYS = [
+  "sitzenZuStehen", "freiesStehen", "freiesSitzen", "stehenZuSitzen", "transfer",
+  "augenGeschlossen", "fuesseZusammen", "reichweite", "gegenstandAufheben", "umschauen",
+  "drehung360", "stufeWechsel", "tandemstand", "einbeinstand"
+];
+
+function normalizeBbs14Items(items) {
+  const source = items && typeof items === "object" ? items : {};
+  const result = {};
+  BBS_ITEM_KEYS.forEach((key) => {
+    const entry = source[key] && typeof source[key] === "object" ? source[key] : {};
+    result[key] = {
+      score: ensureNullableInt(entry.score, 0, 4),
+      nichtDurchfuehrbar: ensureBoolean(entry.nichtDurchfuehrbar, false)
+    };
+  });
+  return result;
+}
+
 function normalizeMrcGruppen(gruppen) {
   const source = gruppen && typeof gruppen === "object" ? gruppen : {};
   const result = {};
@@ -329,7 +356,9 @@ function normalizeAssessment(item) {
       nichtDurchfuehrbar: ensureBoolean(tugSource.nichtDurchfuehrbar, false)
     },
 
-    weiche: ensureEnum(source.weiche, ["neurologisch", "orthopaedisch", "schwerstbetroffen"], ""),
+    weiche: ensureEnum(source.weiche, ["neurologisch", "orthopaedisch", "schwerstbetroffen", "bbs"], ""),
+
+    bbs14: normalizeBbs14Items(source.bbs14),
 
     neuro: {
       bbs7: normalizeBbs7Items(bbs7Source),
@@ -395,6 +424,7 @@ function normalizePatient(patient) {
     birthDate: ensureDeDateString(source.birthDate),
     befreit: ensureBoolean(source.befreit, false),
     verstorben: ensureBoolean(source.verstorben, false),
+    ausgeschieden: ensureBoolean(source.ausgeschieden, false),
     zuzahlungsstatus: ensureZuzahlungsstatus(source.zuzahlungsstatus),
     zuzahlungsstatusSetAt: ensureIsoString(source.zuzahlungsstatusSetAt),
     zuzahlungReminderAt: ensureIsoString(source.zuzahlungReminderAt),
@@ -582,6 +612,7 @@ function normalizeArzt(item) {
     id: ensureString(source.id) || generateId("arzt"),
     name: ensureString(source.name),
     adresse: ensureString(source.adresse),
+    email: ensureString(source.email),
     createdAt: ensureIsoString(source.createdAt, new Date().toISOString()),
     updatedAt: ensureIsoString(source.updatedAt, new Date().toISOString())
   };
@@ -607,7 +638,7 @@ function normalizeAutoExportHistory(items) {
     return {
       id: ensureString(source.id) || generateId("autoexport"),
       createdAt: ensureIsoString(source.createdAt, new Date().toISOString()),
-      status: ["handled", "postponed"].includes(source.status) ? source.status : "postponed",
+      status: ["handled", "postponed", "auto-download"].includes(source.status) ? source.status : "postponed",
       message: ensureString(source.message)
     };
   }).slice(0, 20);
@@ -640,6 +671,8 @@ export function finalizeAppStructure(data) {
       weeklyHours: ensureWeeklyHours(settings.weeklyHours),
       fastStartDatum: ensureString(settings.fastStartDatum),
       stundenStartsaldoMinuten: ensureIntegerNumber(settings.stundenStartsaldoMinuten, 0),
+      jahresurlaubTage: ensureIntegerNumber(settings.jahresurlaubTage, 0),
+      fastiEnabled: ensureBoolean(settings.fastiEnabled, true),
       supportUrl: ensureString(settings.supportUrl),
       buero: {
         email: ensureString(settings.buero?.email)
@@ -685,7 +718,10 @@ export function finalizeAppStructure(data) {
 
     ui: {
       lastBackupAt: ensureIsoString(source.ui?.lastBackupAt),
-      lastAutoExportAt: ensureIsoString(source.ui?.lastAutoExportAt)
+      lastAutoExportAt: ensureIsoString(source.ui?.lastAutoExportAt),
+      lastAutoBackupDownloadAt: ensureIsoString(source.ui?.lastAutoBackupDownloadAt),
+      lastDataChangeAt: ensureIsoString(source.ui?.lastDataChangeAt),
+      lastFastiWeeklySummaryAt: ensureIsoString(source.ui?.lastFastiWeeklySummaryAt)
     }
   };
 

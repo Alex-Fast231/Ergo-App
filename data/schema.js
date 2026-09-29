@@ -1,7 +1,7 @@
 import { generateId } from "../core/utils.js";
 
 export const APP_SCHEMA_VERSION = 3;
-export const APP_VERSION = "1.0.0-ergo";
+export const APP_VERSION = "1.1.0-ergo";
 export const APP_MODULE = "ergo";
 
 export const PRACTICE_ADDRESS = `Ergo Strobl
@@ -29,6 +29,8 @@ export function createEmptyAppData() {
       weeklyHours: "",
       fastStartDatum: "",
       stundenStartsaldoMinuten: 0,
+      jahresurlaubTage: 0,
+      fastiEnabled: true,
       supportUrl: "",
       buero: {
         email: ""
@@ -81,7 +83,10 @@ export function createEmptyAppData() {
 
     ui: {
       lastBackupAt: "",
-      lastAutoExportAt: ""
+      lastAutoExportAt: "",
+      lastAutoBackupDownloadAt: "",
+      lastDataChangeAt: "",
+      lastFastiWeeklySummaryAt: ""
     }
   };
 }

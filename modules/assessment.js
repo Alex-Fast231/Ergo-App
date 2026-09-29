@@ -330,8 +330,219 @@ export const KONTRAKTUR_GELENKE = [
 export const WEICHEN_OPTIONEN = [
   { val: "neurologisch", label: "🧠 Gleichgewicht / Lähmung / Koordination", ebene: "2a" },
   { val: "orthopaedisch", label: "🦴 Schmerz / Kraft / Bewegung", ebene: "2b" },
-  { val: "schwerstbetroffen", label: "🛏️ Bettlägerig / kaum aktiv", ebene: "2c" }
+  { val: "schwerstbetroffen", label: "🛏️ Bettlägerig / kaum aktiv", ebene: "2c" },
+  { val: "bbs", label: "⚖️ Berg-Balance-Test", ebene: "bbs" }
 ];
+
+// ============================================================
+// Berg-Balance-Test (BBS) – vollständige 14-Item-Version. Ab jetzt der
+// EINZIGE Assessment-Test in der App (Vorgabe des Nutzers: "Assessment
+// reduzieren auf ausschließlich den Bergbalancetest"). Jedes Item wird 0-4
+// bewertet (4 = am besten), Standardkriterien der Berg Balance Scale.
+// ============================================================
+export const BBS_ITEMS = [
+  {
+    key: "sitzenZuStehen",
+    label: "Vom Sitzen zum Stehen",
+    aufgabe: "Bitte stehen Sie auf. Versuchen Sie dabei, möglichst nicht mit den Händen nachzuhelfen.",
+    scores: [
+      { val: 4, text: "steht ohne Zuhilfenahme der Hände auf und stabilisiert sich selbstständig" },
+      { val: 3, text: "steht selbstständig auf, benutzt dabei die Hände" },
+      { val: 2, text: "steht nach mehreren Versuchen mit den Händen auf" },
+      { val: 1, text: "benötigt minimale Hilfe, um aufzustehen oder sich zu stabilisieren" },
+      { val: 0, text: "benötigt moderate oder maximale Unterstützung, um aufzustehen" }
+    ]
+  },
+  {
+    key: "freiesStehen",
+    label: "Freies Stehen",
+    aufgabe: "Bitte stehen Sie 2 Minuten lang, ohne sich festzuhalten.",
+    scores: [
+      { val: 4, text: "kann sicher 2 Minuten stehen" },
+      { val: 3, text: "kann 2 Minuten unter Aufsicht stehen" },
+      { val: 2, text: "kann 30 Sekunden ohne Festhalten stehen" },
+      { val: 1, text: "benötigt mehrere Versuche, um 30 Sekunden ohne Festhalten zu stehen" },
+      { val: 0, text: "kann ohne Hilfe nicht 30 Sekunden stehen" }
+    ]
+  },
+  {
+    key: "freiesSitzen",
+    label: "Freies Sitzen (Füße auf dem Boden, ohne Rückenlehne)",
+    aufgabe: "Bitte sitzen Sie 2 Minuten lang mit verschränkten Armen, ohne sich anzulehnen.",
+    scores: [
+      { val: 4, text: "kann sicher 2 Minuten sitzen" },
+      { val: 3, text: "kann 2 Minuten unter Aufsicht sitzen" },
+      { val: 2, text: "kann 30 Sekunden sitzen" },
+      { val: 1, text: "kann 10 Sekunden sitzen" },
+      { val: 0, text: "kann ohne Unterstützung nicht 10 Sekunden sitzen" }
+    ]
+  },
+  {
+    key: "stehenZuSitzen",
+    label: "Vom Stehen zum Sitzen",
+    aufgabe: "Bitte setzen Sie sich hin.",
+    scores: [
+      { val: 4, text: "setzt sich sicher mit minimaler Zuhilfenahme der Hände hin" },
+      { val: 3, text: "kontrolliert das Hinsetzen durch Einsatz der Hände" },
+      { val: 2, text: "nutzt die Rückseite der Beine gegen den Stuhl, um das Hinsetzen zu kontrollieren" },
+      { val: 1, text: "setzt sich selbstständig, aber unkontrolliert hin" },
+      { val: 0, text: "benötigt Hilfe beim Hinsetzen" }
+    ]
+  },
+  {
+    key: "transfer",
+    label: "Transfer",
+    aufgabe: "Transfer zwischen zwei Stühlen (einmal mit, einmal ohne Armlehne) bzw. Stuhl/Bett.",
+    scores: [
+      { val: 4, text: "kann sicher transferieren, Hände kaum nötig" },
+      { val: 3, text: "kann sicher transferieren, Hände eindeutig nötig" },
+      { val: 2, text: "kann mit verbaler Anleitung und/oder Aufsicht transferieren" },
+      { val: 1, text: "benötigt eine Person zur Unterstützung" },
+      { val: 0, text: "benötigt zwei Personen zur Unterstützung/Aufsicht" }
+    ]
+  },
+  {
+    key: "augenGeschlossen",
+    label: "Stehen mit geschlossenen Augen",
+    aufgabe: "Bitte schließen Sie die Augen und stehen Sie 10 Sekunden ruhig.",
+    scores: [
+      { val: 4, text: "kann sicher 10 Sekunden stehen" },
+      { val: 3, text: "kann 10 Sekunden unter Aufsicht stehen" },
+      { val: 2, text: "kann 3 Sekunden stehen" },
+      { val: 1, text: "kann die Augen nicht 3 Sekunden geschlossen halten, bleibt aber sicher stehen" },
+      { val: 0, text: "benötigt Hilfe, um einen Sturz zu vermeiden" }
+    ]
+  },
+  {
+    key: "fuesseZusammen",
+    label: "Stehen mit geschlossenen Füßen",
+    aufgabe: "Bitte stellen Sie die Füße zusammen und stehen Sie ohne Festhalten.",
+    scores: [
+      { val: 4, text: "kann die Füße selbstständig zusammenstellen und 1 Minute sicher stehen" },
+      { val: 3, text: "kann die Füße selbstständig zusammenstellen und 1 Minute unter Aufsicht stehen" },
+      { val: 2, text: "kann die Füße selbstständig zusammenstellen, hält die Position aber nicht 30 Sekunden" },
+      { val: 1, text: "benötigt Hilfe, um die Position einzunehmen, hält sie dann aber 15 Sekunden" },
+      { val: 0, text: "benötigt Hilfe, um die Position einzunehmen, und hält sie keine 15 Sekunden" }
+    ]
+  },
+  {
+    key: "reichweite",
+    label: "Reichweite nach vorne im Stehen",
+    aufgabe: "Arm auf 90° anheben, Finger strecken und so weit wie möglich nach vorne reichen, ohne die Füße zu bewegen.",
+    scores: [
+      { val: 4, text: "kann sicher mehr als 25 cm nach vorne reichen" },
+      { val: 3, text: "kann sicher mehr als 12 cm nach vorne reichen" },
+      { val: 2, text: "kann sicher mehr als 5 cm nach vorne reichen" },
+      { val: 1, text: "reicht nach vorne, benötigt aber Aufsicht" },
+      { val: 0, text: "verliert das Gleichgewicht beim Versuch / benötigt äußere Unterstützung" }
+    ]
+  },
+  {
+    key: "gegenstandAufheben",
+    label: "Gegenstand vom Boden aufheben",
+    aufgabe: "Heben Sie den vor Ihren Füßen liegenden Gegenstand (z.B. Hausschuh) auf.",
+    scores: [
+      { val: 4, text: "kann den Gegenstand sicher und einfach aufheben" },
+      { val: 3, text: "kann den Gegenstand aufheben, benötigt aber Aufsicht" },
+      { val: 2, text: "kann den Gegenstand nicht aufheben, reicht aber bis auf 2-5 cm heran und hält das Gleichgewicht selbstständig" },
+      { val: 1, text: "kann den Gegenstand nicht aufheben, benötigt Aufsicht beim Versuch" },
+      { val: 0, text: "kann es nicht versuchen / benötigt Hilfe, um Gleichgewichtsverlust oder Sturz zu vermeiden" }
+    ]
+  },
+  {
+    key: "umschauen",
+    label: "Über die Schulter nach hinten schauen",
+    aufgabe: "Drehen Sie sich um, um über die linke, dann über die rechte Schulter zu schauen.",
+    scores: [
+      { val: 4, text: "schaut nach beiden Seiten mit guter Gewichtsverlagerung zurück" },
+      { val: 3, text: "schaut nur zu einer Seite zurück, zur anderen Seite geringere Gewichtsverlagerung" },
+      { val: 2, text: "dreht sich nur zur Seite, hält aber das Gleichgewicht" },
+      { val: 1, text: "benötigt Aufsicht beim Drehen" },
+      { val: 0, text: "benötigt Hilfe, um Gleichgewichtsverlust oder Sturz zu vermeiden" }
+    ]
+  },
+  {
+    key: "drehung360",
+    label: "360°-Drehung",
+    aufgabe: "Drehen Sie sich einmal ganz um die eigene Achse. Pause. Dann in die andere Richtung drehen.",
+    scores: [
+      { val: 4, text: "kann sicher in ≤4 Sekunden zu beiden Seiten drehen" },
+      { val: 3, text: "kann sicher in ≤4 Sekunden nur zu einer Seite drehen" },
+      { val: 2, text: "kann sicher, aber langsam drehen" },
+      { val: 1, text: "benötigt engmaschige Aufsicht oder verbale Anleitung" },
+      { val: 0, text: "benötigt Hilfe während der Drehung" }
+    ]
+  },
+  {
+    key: "stufeWechsel",
+    label: "Abwechselnd Fuß auf Stufe/Hocker stellen",
+    aufgabe: "Stellen Sie abwechselnd jeden Fuß auf die Stufe/den Hocker, bis jeder Fuß viermal aufgesetzt hat.",
+    scores: [
+      { val: 4, text: "kann sicher und selbstständig stehen, schafft 8 Schritte in 20 Sekunden" },
+      { val: 3, text: "kann selbstständig stehen, schafft 8 Schritte in mehr als 20 Sekunden" },
+      { val: 2, text: "schafft 4 Schritte ohne Hilfsmittel, unter Aufsicht" },
+      { val: 1, text: "schafft mehr als 2 Schritte, benötigt minimale Hilfe" },
+      { val: 0, text: "benötigt Hilfe, um einen Sturz zu vermeiden / kann es nicht versuchen" }
+    ]
+  },
+  {
+    key: "tandemstand",
+    label: "Stehen mit einem Fuß vor dem anderen (Tandemstand)",
+    aufgabe: "Stellen Sie einen Fuß direkt vor den anderen. Falls das nicht geht: einen Fuß so weit vorsetzen, dass die Ferse vor den Zehen des anderen Fußes steht.",
+    scores: [
+      { val: 4, text: "kann die Füße selbstständig in Tandemstellung bringen und 30 Sekunden halten" },
+      { val: 3, text: "kann einen Fuß selbstständig vorsetzen und 30 Sekunden halten" },
+      { val: 2, text: "kann einen kleinen Schritt selbstständig machen und 30 Sekunden halten" },
+      { val: 1, text: "benötigt Hilfe beim Schritt, kann die Position aber 15 Sekunden halten" },
+      { val: 0, text: "verliert beim Schritt oder Stehen das Gleichgewicht" }
+    ]
+  },
+  {
+    key: "einbeinstand",
+    label: "Einbeinstand",
+    aufgabe: "Stehen Sie so lange wie möglich auf einem Bein, ohne sich festzuhalten.",
+    scores: [
+      { val: 4, text: "kann das Bein selbstständig anheben und länger als 10 Sekunden halten" },
+      { val: 3, text: "kann das Bein selbstständig anheben und 5-10 Sekunden halten" },
+      { val: 2, text: "kann das Bein selbstständig anheben und mindestens 3 Sekunden halten" },
+      { val: 1, text: "versucht, das Bein anzuheben, hält es keine 3 Sekunden, steht aber selbstständig weiter" },
+      { val: 0, text: "kann es nicht versuchen / benötigt Hilfe, um einen Sturz zu vermeiden" }
+    ]
+  }
+];
+export const BBS_MAX = 56;
+
+export function computeBbsTotal(items) {
+  let total = 0;
+  let maxPossible = 0;
+  let notDurchfuehrbar = 0;
+
+  BBS_ITEMS.forEach((item) => {
+    const entry = items?.[item.key];
+    if (!entry || entry.nichtDurchfuehrbar) {
+      notDurchfuehrbar += 1;
+      return;
+    }
+    total += Number(entry.score) || 0;
+    maxPossible += 4;
+  });
+
+  return { total, maxPossible, notDurchfuehrbar };
+}
+
+// maxPossible fällt kleiner als BBS_MAX aus, sobald Items als "nicht
+// durchführbar" markiert wurden - die Schwellenwerte werden deshalb
+// proportional zur tatsächlich erreichbaren Punktzahl skaliert (analog zu
+// classifyBbs7 oben), statt starr gegen die volle 56er-Skala zu prüfen.
+// Cutoffs entsprechen der üblichen klinischen Einteilung der Berg Balance
+// Scale (41-56 gering, 21-40 mittel, 0-20 hoch).
+export function classifyBbs(total, maxPossible = BBS_MAX) {
+  const max = Number(maxPossible) > 0 ? Number(maxPossible) : BBS_MAX;
+  const ratio = Number(total) / max;
+  if (ratio >= 41 / BBS_MAX) return "Geringes Sturzrisiko";
+  if (ratio >= 21 / BBS_MAX) return "Mittleres Sturzrisiko";
+  return "Hohes Sturzrisiko";
+}
 
 // ============================================================
 // Ampel-/Verlaufslogik
