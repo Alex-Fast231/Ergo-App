@@ -184,7 +184,7 @@ export async function exportBackup(runtimeData, { overridePassword = null } = {}
   const blob = await writer.close();
   const stamp = meta.exportTimestamp.replace(/[:T]/g, "-").slice(0, 16);
   const therapistSlug = sanitizeFilenamePart(meta.therapistName) || "therapeut";
-  const filename = `FaSt-Doku-Backup-${therapistSlug}-${stamp}.zip`;
+  const filename = `FaSt-Doku-Ergo-Backup-${therapistSlug}-${stamp}.zip`;
   return { blob, filename, meta };
 }
 

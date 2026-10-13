@@ -1,5 +1,5 @@
 import { createEmptyAppData, APP_VERSION, PRACTICE_ADDRESS, PRACTICE_PHONE } from "../data/schema.js";
-import { setupSecurity, unlockWithPIN } from "../security/auth.js";
+import { setupSecurity, unlockWithPIN, changePIN } from "../security/auth.js";
 import { getRemainingLockoutMs } from "../security/lock.js";
 import {
   getCryptoMeta,
@@ -1556,33 +1556,90 @@ function collectRezeptFormPayload() {
   };
 }
 
-function renderRezeptPruefungPanel(validation) {
-  if (validation.privat) {
-    return `<p class="pill-green">🔒 Privatrezept — keine Kassenregeln, keine Pflichtfeld-Prüfung nötig.</p>`;
-  }
-  if (validation.ok) {
-    return `<p class="pill-green">✓ Alle Pflichtfelder vollständig · Fristen ok</p>`;
+function buildHeilmittelKatalogHinweis(payload, isOpen = false) {
+  const icdInputs = [payload.icd10, payload.icd10b].filter((v) => String(v || "").trim());
+  if (icdInputs.length === 0) return "";
+
+  const items = (payload.items || []).filter((item) => item.type);
+  if (items.length === 0) return "";
+
+  const ergebnisse = optimiereVerordnung(icdInputs);
+  const beste = ergebnisse.find((e) => !e.unbekannt);
+  if (!beste) return "";
+
+  const empfohlenerTyp = EMPFEHLUNG_ZU_ITEM_TYPE[beste.empfehlung];
+  if (!empfohlenerTyp) return "";
+
+  const aktuelleTypen = items.map((item) => String(item.type || "").trim().toUpperCase());
+  if (aktuelleTypen.includes(empfohlenerTyp.toUpperCase())) {
+    return `<p class="pill-green" style="margin-top:8px;">✓ ICD-10/Heilmittel passen</p>`;
   }
 
+  const heilmittelLabel = VERGUETUNG[beste.empfehlung]?.label || beste.empfehlung;
   return `
-    <div class="error" style="margin-top:12px;">
-      <p class="pill-red" style="display:block; margin-bottom:8px;">✗ Rezeptprüfung: ${validation.errors.length} Punkt(e) offen</p>
-      <ul style="margin:0; padding-left:20px; font-weight:400;">
-        ${validation.errors.map((err) => `<li>${escapeHtml(err.message)}</li>`).join("")}
-      </ul>
-    </div>
+    <details id="katalogHinweisDetails" style="margin-top:8px;" ${isOpen ? "open" : ""}>
+      <summary id="katalogHinweisSummary" class="pill-orange" style="list-style:none; cursor:pointer; display:inline-block;">⚠️ ICD-10/Heilmittel</summary>
+      <p class="muted" style="margin:6px 0 0 0;">ICD-10-Code und Heilmittel passen nicht zusammen (empfohlen: ${escapeHtml(heilmittelLabel)}). Bitte den Rezeptoptimierer nutzen.</p>
+    </details>
   `;
+}
+
+function renderRezeptPruefungPanel(validation, payload = null, katalogHinweisOpen = false) {
+  const parts = [];
+
+  if (validation.privat) {
+    parts.push(`<p class="pill-green">🔒 Privatrezept — keine Kassenregeln, keine Pflichtfeld-Prüfung nötig.</p>`);
+  } else if (validation.ok) {
+    parts.push(`<p class="pill-green">✓ Alle Pflichtfelder vollständig · Fristen ok</p>`);
+  } else {
+    parts.push(`
+      <div class="error" style="margin-top:12px;">
+        <p class="pill-red" style="display:block; margin-bottom:8px;">✗ Rezeptprüfung: ${validation.errors.length} Punkt(e) offen</p>
+        <ul style="margin:0; padding-left:20px; font-weight:400;">
+          ${validation.errors.map((err) => `<li>${escapeHtml(err.message)}</li>`).join("")}
+        </ul>
+      </div>
+    `);
+  }
+
+  // Warnung sobald Hausbesuch auf "Nein" steht - diese Praxis arbeitet
+  // praktisch ausschließlich per Hausbesuch (vom Nutzer bestätigt, gilt
+  // ebenso für die Ergo-Praxis).
+  if (payload && payload.hausbesuch === "nein") {
+    parts.push(`
+      <div class="card" style="background:#fffbeb; border-color:#f59e0b; margin-top:12px; margin-bottom:0; padding:14px;">
+        <p class="pill-orange" style="display:block; margin-bottom:6px;">⚠️ Hausbesuch: Nein</p>
+        <p style="margin:0;">Diese Praxis arbeitet praktisch ausschließlich per Hausbesuch – bitte prüfen, ob das wirklich so gewollt ist.</p>
+      </div>
+    `);
+  }
+
+  if (payload && !validation.privat) {
+    const katalogHinweis = buildHeilmittelKatalogHinweis(payload, katalogHinweisOpen);
+    if (katalogHinweis) parts.push(katalogHinweis);
+  }
+
+  return parts.join("");
 }
 
 function bindRezeptPruefungLive(panelId) {
   const panel = document.getElementById(panelId);
   if (!panel) return;
 
+  let katalogHinweisOpen = false;
+
   const refresh = () => {
     const payload = collectRezeptFormPayload();
     const validation = validateRezeptPflichtfelder(payload);
-    panel.innerHTML = renderRezeptPruefungPanel(validation);
+    panel.innerHTML = renderRezeptPruefungPanel(validation, payload, katalogHinweisOpen);
   };
+
+  panel.addEventListener("click", (event) => {
+    if (!event.target.closest("#katalogHinweisSummary")) return;
+    event.preventDefault();
+    katalogHinweisOpen = !katalogHinweisOpen;
+    refresh();
+  });
 
   ["arzt", "ausstell", "bg", "dt", "dringend", "icd10", "icd10b", "leitsymptomatik", "hausbesuch", "arztStempel", "arztUnterschrift", "privat"]
     .forEach((id) => {
@@ -3013,6 +3070,20 @@ export function showSettingsView({ onLock }) {
     </div>
 
     <div class="card">
+      <h3>PIN ändern</h3>
+      <p class="muted">Nützlich z.B. bei Geräte-/Personenwechsel: nach einem Backup-Restore erst einmal mit der alten PIN entsperren, dann hier eine eigene neue PIN setzen. Praxispasswort und alle Patientendaten bleiben dabei unverändert.</p>
+
+      <label for="settingsNewPin">Neue PIN (mindestens 6 Zeichen)</label>
+      <input id="settingsNewPin" type="password" inputmode="numeric" autocomplete="new-password">
+
+      <label for="settingsNewPinRepeat">Neue PIN wiederholen</label>
+      <input id="settingsNewPinRepeat" type="password" inputmode="numeric" autocomplete="new-password">
+
+      <button id="changePinBtn" class="secondary">PIN ändern</button>
+      <div id="changePinMsg"></div>
+    </div>
+
+    <div class="card">
       <h3>App-Version</h3>
       <p class="muted">Aktuelle Version: ${escapeHtml(APP_VERSION)}</p>
       <button id="checkForUpdatesBtn" class="secondary">Aktualisieren</button>
@@ -3101,6 +3172,46 @@ export function showSettingsView({ onLock }) {
       console.error(err);
       msg.className = "error";
       msg.textContent = err?.message || "Einstellungen konnten nicht gespeichert werden.";
+    }
+  };
+
+  document.getElementById("changePinBtn").onclick = async () => {
+    const newPin = document.getElementById("settingsNewPin").value;
+    const newPinRepeat = document.getElementById("settingsNewPinRepeat").value;
+    const msg = document.getElementById("changePinMsg");
+
+    msg.className = "error";
+    msg.textContent = "";
+
+    if (!newPin || newPin.length < 6) {
+      msg.textContent = "Die neue PIN muss mindestens 6 Zeichen haben.";
+      return;
+    }
+
+    if (newPin !== newPinRepeat) {
+      msg.textContent = "Die PIN stimmt nicht überein.";
+      return;
+    }
+
+    try {
+      const runtimeKey = getRuntimeKey();
+      if (!runtimeKey) throw new Error("Runtime Session ist nicht entsperrt");
+
+      const updatedCryptoMeta = await changePIN({
+        newPin,
+        dataKey: runtimeKey,
+        cryptoMeta: getCryptoMeta()
+      });
+      setCryptoMeta(updatedCryptoMeta);
+
+      document.getElementById("settingsNewPin").value = "";
+      document.getElementById("settingsNewPinRepeat").value = "";
+      msg.className = "success";
+      msg.textContent = "PIN wurde geändert.";
+    } catch (err) {
+      console.error(err);
+      msg.className = "error";
+      msg.textContent = err?.message || "PIN konnte nicht geändert werden.";
     }
   };
 
@@ -6002,7 +6113,7 @@ export function showRezeptDetailView({ onLock, homeId, patientId, rezeptId, retu
 
     <div class="card">
       <h3>Rezeptprüfung</h3>
-      ${renderRezeptPruefungPanel(pruefung)}
+      ${renderRezeptPruefungPanel(pruefung, rezept)}
     </div>
 
     <details class="accordion">

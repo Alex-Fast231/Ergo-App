@@ -114,6 +114,29 @@ export async function unlockWithPIN({ pin, cryptoMeta, encryptedAppData, securit
 }
 
 
+// Ändert ausschließlich die PIN (für den Geräte-/Personenwechsel, z.B. bei
+// der Übergabe an eine andere Therapeutin): der bestehende dataKey bleibt
+// unverändert, es wird nur ein neues PIN-Salt erzeugt und der dataKey damit
+// neu umschlossen. Praxispasswort-Wrapping, verschlüsselte App-Daten und
+// alle fachlichen Daten (Patienten, Rezepte, ...) bleiben komplett
+// unberührt. Der Aufruf setzt voraus, dass die App bereits entsperrt ist
+// (runtimeKey liegt vor) - es gibt bewusst keine zusätzliche
+// "alte PIN eingeben"-Hürde, da das Erreichen der Einstellungen selbst schon
+// voraussetzt, dass zuvor erfolgreich entsperrt wurde.
+export async function changePIN({ newPin, dataKey, cryptoMeta }) {
+  const pinSaltBytes = generateSalt(16);
+  const wrappedByPIN = await wrapDataKeyWithPIN(dataKey, newPin, pinSaltBytes);
+
+  const updatedMeta = {
+    ...cryptoMeta,
+    pinSaltBase64: toBase64(pinSaltBytes),
+    wrappedDataKeyByPIN: wrappedByPIN
+  };
+
+  await saveCryptoMeta(updatedMeta);
+  return updatedMeta;
+}
+
 export async function getPracticePasswordFromRuntime({ runtimeKey, cryptoMeta }) {
   if (!runtimeKey) {
     throw new Error("Runtime-Key fehlt");

@@ -151,7 +151,7 @@ export async function buildBackupZip(runtimeData) {
   const blob = await writer.close();
   const stamp = normalized.exportTimestamp.replace(/[:T]/g, "-").slice(0, 16);
   const therapistSlug = sanitizeFilenamePart(normalized.settings?.therapistName) || "therapeut";
-  const filename = `FaSt-Doku-Viewer-Backup-${therapistSlug}-${stamp}.zip`;
+  const filename = `FaSt-Doku-Ergo-Viewer-Backup-${therapistSlug}-${stamp}.zip`;
   return { blob, filename };
 }
 
