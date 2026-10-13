@@ -3071,7 +3071,9 @@ export function showSettingsView({ onLock }) {
 
     <div class="card">
       <h3>PIN ändern</h3>
-      <p class="muted">Nützlich z.B. bei Geräte-/Personenwechsel: nach einem Backup-Restore erst einmal mit der alten PIN entsperren, dann hier eine eigene neue PIN setzen. Praxispasswort und alle Patientendaten bleiben dabei unverändert.</p>
+
+      <label for="settingsCurrentPin">Aktuelle PIN</label>
+      <input id="settingsCurrentPin" type="password" inputmode="numeric" autocomplete="current-password">
 
       <label for="settingsNewPin">Neue PIN (mindestens 6 Zeichen)</label>
       <input id="settingsNewPin" type="password" inputmode="numeric" autocomplete="new-password">
@@ -3176,12 +3178,18 @@ export function showSettingsView({ onLock }) {
   };
 
   document.getElementById("changePinBtn").onclick = async () => {
+    const currentPin = document.getElementById("settingsCurrentPin").value;
     const newPin = document.getElementById("settingsNewPin").value;
     const newPinRepeat = document.getElementById("settingsNewPinRepeat").value;
     const msg = document.getElementById("changePinMsg");
 
     msg.className = "error";
     msg.textContent = "";
+
+    if (!currentPin) {
+      msg.textContent = "Bitte die aktuelle PIN eingeben.";
+      return;
+    }
 
     if (!newPin || newPin.length < 6) {
       msg.textContent = "Die neue PIN muss mindestens 6 Zeichen haben.";
@@ -3194,16 +3202,14 @@ export function showSettingsView({ onLock }) {
     }
 
     try {
-      const runtimeKey = getRuntimeKey();
-      if (!runtimeKey) throw new Error("Runtime Session ist nicht entsperrt");
-
       const updatedCryptoMeta = await changePIN({
+        currentPin,
         newPin,
-        dataKey: runtimeKey,
         cryptoMeta: getCryptoMeta()
       });
       setCryptoMeta(updatedCryptoMeta);
 
+      document.getElementById("settingsCurrentPin").value = "";
       document.getElementById("settingsNewPin").value = "";
       document.getElementById("settingsNewPinRepeat").value = "";
       msg.className = "success";

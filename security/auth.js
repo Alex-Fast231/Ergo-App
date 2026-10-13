@@ -1,5 +1,5 @@
 import { generateSalt, toBase64, fromBase64, encryptJSON, decryptJSON, encryptText, decryptText } from "../crypto/crypto-engine.js";
-import { generateDataKey, wrapDataKeyWithPassword, wrapDataKeyWithPIN, unwrapDataKeyWithPassword, unwrapDataKeyWithPIN } from "../crypto/key-management.js";
+import { generateDataKey, wrapDataKeyWithPassword, wrapDataKeyWithPIN, unwrapDataKeyWithPassword, unwrapDataKeyWithPIN, unwrapDataKeyWithPINExtractable } from "../crypto/key-management.js";
 import { normalizeAppData } from "../data/normalization.js";
 import { createDefaultSecurityState, isLockedOut, registerFailedLogin, registerSuccessfulUnlock } from "./lock.js";
 import { saveCryptoMeta, saveEncryptedAppData, saveSecurityState } from "../storage/secure-store.js";
@@ -123,7 +123,26 @@ export async function unlockWithPIN({ pin, cryptoMeta, encryptedAppData, securit
 // (runtimeKey liegt vor) - es gibt bewusst keine zusätzliche
 // "alte PIN eingeben"-Hürde, da das Erreichen der Einstellungen selbst schon
 // voraussetzt, dass zuvor erfolgreich entsperrt wurde.
-export async function changePIN({ newPin, dataKey, cryptoMeta }) {
+export async function changePIN({ currentPin, newPin, cryptoMeta }) {
+  // Der laufende Session-Schlüssel (runtimeKey) ist bewusst NICHT
+  // extrahierbar (siehe importKeyRaw() in crypto-engine.js) - ihn hier zu
+  // verwenden würde mit "key is not extractable" fehlschlagen. Stattdessen
+  // wird der dataKey hier eigens noch einmal mit der aktuellen PIN
+  // entschlüsselt, diesmal extrahierbar, nur für diesen einen Vorgang.
+  // Das bestätigt nebenbei auch gleich, dass die aktuelle PIN stimmt.
+  let dataKey;
+  try {
+    dataKey = await unwrapDataKeyWithPINExtractable(
+      cryptoMeta.wrappedDataKeyByPIN,
+      currentPin,
+      fromBase64(cryptoMeta.pinSaltBase64)
+    );
+  } catch {
+    const err = new Error("Aktuelle PIN ist falsch.");
+    err.code = "INVALID_PIN";
+    throw err;
+  }
+
   const pinSaltBytes = generateSalt(16);
   const wrappedByPIN = await wrapDataKeyWithPIN(dataKey, newPin, pinSaltBytes);
 
