@@ -3100,7 +3100,17 @@ export function showSettingsView({ onLock }) {
     showDashboardView({ onLock });
   };
 
-  document.getElementById("saveSettingsBtn").onclick = async () => {
+  // Liest+validiert+speichert alle allgemeinen Einstellungsfelder (Name,
+  // Fax, Arbeitstage, Stunden, Jahresurlaub, FaSti, Büro-Mail,
+  // Assessment-Intervall). Wird sowohl vom "Änderungen speichern"-Button als
+  // auch vom "PIN ändern"-Button aufgerufen, damit beim PIN-Wechsel nichts
+  // verloren geht, was auf derselben Seite eingegeben, aber nicht separat
+  // über "Änderungen speichern" gesichert wurde - landet dadurch garantiert
+  // mit im nächsten Backup. Wirft bei einem Validierungsfehler, statt still
+  // fehlzuschlagen, damit der aufrufende Button-Handler die Meldung anzeigen
+  // und z.B. die PIN-Änderung NICHT durchführen kann, wenn die übrigen
+  // Angaben ungültig sind (kein halb gespeicherter Zustand).
+  async function saveGeneralSettings() {
     const therapistName = document.getElementById("settingsTherapistName").value.trim();
     const practiceAddress = PRACTICE_ADDRESS;
     const practicePhone = PRACTICE_PHONE;
@@ -3115,59 +3125,58 @@ export function showSettingsView({ onLock }) {
     const fastiEnabled = document.getElementById("settingsFastiEnabled").checked;
     const bueroEmail = document.getElementById("settingsBueroEmail").value.trim();
     const assessmentIntervalMonths = Number(document.getElementById("settingsAssessmentInterval").value);
-    const msg = document.getElementById("settingsMessage");
-
-    msg.className = "error";
-    msg.textContent = "";
 
     if (!isValidWeeklyHours(weeklyHours)) {
-      msg.textContent = "Die Arbeitsstunden pro Woche müssen als Zahl eingegeben werden, z. B. 20 oder 38.5.";
-      return;
+      throw new Error("Die Arbeitsstunden pro Woche müssen als Zahl eingegeben werden, z. B. 20 oder 38.5.");
     }
 
     if (fastStartDatumInput && !fastStartDatum) {
-      msg.textContent = "Das Startdatum bei FaSt muss im Format TT.MM.JJJJ eingegeben werden.";
-      return;
+      throw new Error("Das Startdatum bei FaSt muss im Format TT.MM.JJJJ eingegeben werden.");
     }
 
     if (stundenStartsaldoMinuten === null) {
-      msg.textContent = "Der Startsaldo muss im Format +HH:MM oder -HH:MM eingegeben werden, z. B. +40:00.";
-      return;
+      throw new Error("Der Startsaldo muss im Format +HH:MM oder -HH:MM eingegeben werden, z. B. +40:00.");
     }
 
     if (!Number.isFinite(jahresurlaubTage) || jahresurlaubTage < 0) {
-      msg.textContent = "Der Jahresurlaub muss als Zahl (Tage) eingegeben werden, z. B. 30.";
-      return;
+      throw new Error("Der Jahresurlaub muss als Zahl (Tage) eingegeben werden, z. B. 30.");
     }
 
+    mutateRuntimeData((data) => {
+      data.settings.therapistName = therapistName;
+      data.settings.practiceAddress = practiceAddress;
+      data.settings.practicePhone = practicePhone;
+      data.settings.therapistFax = therapistFax;
+      data.settings.workDays = workDays;
+      data.settings.weeklyHours = weeklyHours;
+      data.settings.fastStartDatum = fastStartDatum;
+      data.settings.stundenStartsaldoMinuten = stundenStartsaldoMinuten;
+      data.settings.jahresurlaubTage = jahresurlaubTage;
+      data.settings.fastiEnabled = fastiEnabled;
+      data.settings.buero = { email: bueroEmail };
+      data.settings.assessmentIntervalMonths = assessmentIntervalMonths;
+      data.settings.updatedAt = new Date().toISOString();
+    });
+
+    await queuePersistRuntimeData();
+
+    // Sofort wirksam machen, ohne dass ein erneutes Ein-/Ausloggen nötig
+    // ist - "aus" blendet Button+Panel sofort aus, "an" baut sie (falls
+    // gerade deaktiviert) mit frisch berechneten Hinweisen wieder auf.
+    if (fastiEnabled) {
+      showFastiNotices(buildFastiNotices(getRuntimeData()));
+    } else {
+      hideFastiWidget();
+    }
+  }
+
+  document.getElementById("saveSettingsBtn").onclick = async () => {
+    const msg = document.getElementById("settingsMessage");
+    msg.className = "error";
+    msg.textContent = "";
+
     try {
-      mutateRuntimeData((data) => {
-        data.settings.therapistName = therapistName;
-        data.settings.practiceAddress = practiceAddress;
-        data.settings.practicePhone = practicePhone;
-        data.settings.therapistFax = therapistFax;
-        data.settings.workDays = workDays;
-        data.settings.weeklyHours = weeklyHours;
-        data.settings.fastStartDatum = fastStartDatum;
-        data.settings.stundenStartsaldoMinuten = stundenStartsaldoMinuten;
-        data.settings.jahresurlaubTage = jahresurlaubTage;
-        data.settings.fastiEnabled = fastiEnabled;
-        data.settings.buero = { email: bueroEmail };
-        data.settings.assessmentIntervalMonths = assessmentIntervalMonths;
-        data.settings.updatedAt = new Date().toISOString();
-      });
-
-      await queuePersistRuntimeData();
-
-      // Sofort wirksam machen, ohne dass ein erneutes Ein-/Ausloggen nötig
-      // ist - "aus" blendet Button+Panel sofort aus, "an" baut sie (falls
-      // gerade deaktiviert) mit frisch berechneten Hinweisen wieder auf.
-      if (fastiEnabled) {
-        showFastiNotices(buildFastiNotices(getRuntimeData()));
-      } else {
-        hideFastiWidget();
-      }
-
+      await saveGeneralSettings();
       msg.className = "success";
       msg.textContent = "Einstellungen gespeichert.";
     } catch (err) {
@@ -3202,6 +3211,12 @@ export function showSettingsView({ onLock }) {
     }
 
     try {
+      // Erst die übrigen Einstellungen auf dieser Seite sichern (Name,
+      // Stunden, ...), damit beim PIN-Wechsel nichts verloren geht, was
+      // zwar eingegeben, aber noch nicht über "Änderungen speichern"
+      // gesichert wurde.
+      await saveGeneralSettings();
+
       const updatedCryptoMeta = await changePIN({
         currentPin,
         newPin,
@@ -3213,7 +3228,7 @@ export function showSettingsView({ onLock }) {
       document.getElementById("settingsNewPin").value = "";
       document.getElementById("settingsNewPinRepeat").value = "";
       msg.className = "success";
-      msg.textContent = "PIN wurde geändert.";
+      msg.textContent = "PIN geändert und Einstellungen gespeichert.";
     } catch (err) {
       console.error(err);
       msg.className = "error";

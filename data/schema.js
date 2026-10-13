@@ -1,7 +1,7 @@
 import { generateId } from "../core/utils.js";
 
 export const APP_SCHEMA_VERSION = 3;
-export const APP_VERSION = "1.2.1-ergo";
+export const APP_VERSION = "1.2.2-ergo";
 export const APP_MODULE = "ergo";
 
 export const PRACTICE_ADDRESS = `Ergo Strobl
